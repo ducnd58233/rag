@@ -7,12 +7,16 @@ from unstructured.partition.auto import partition
 from .config import settings
 
 
-def load_and_split(file_path: str) -> list[Document]:
+def load_and_split(
+    file_path: str,
+    custom_metadata: dict = {},
+) -> list[Document]:
     """
     Load a file and split it into chunks.
 
     Args:
         file_path (str): Path to the file
+        custom_metadata (dict): Custom metadata to add to the document
 
     Returns:
         list[Document]: List of document chunks
@@ -44,6 +48,8 @@ def load_and_split(file_path: str) -> list[Document]:
                 == chunks[idx + 1].metadata.to_dict().get("page", -1)
             ):
                 continue
+
+            metadata.update(custom_metadata)
 
             documents.append(
                 Document(

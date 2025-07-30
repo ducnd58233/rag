@@ -4,7 +4,17 @@ import json
 from langchain.embeddings.base import Embeddings
 from langchain_core.documents import Document
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, PointStruct, VectorParams
+from qdrant_client.http.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchAny,
+    MatchValue,
+    PointStruct,
+    Range,
+    ScoredPoint,
+    VectorParams,
+)
 
 from .config import settings
 
@@ -126,51 +136,72 @@ class QdrantVectorStore:
             print(f"Error adding documents: {str(e)}")
             return False
 
-    def search(self, query: str, k: int = 5) -> list[Document]:
+    def _build_filter(self, metadata_filter: dict) -> Filter | None:
+        if not metadata_filter:
+            return None
+
+        conditions = []
+        for key, value in metadata_filter.items():
+            if isinstance(value, dict):
+                for op, val in value.items():
+                    if op == "gte":
+                        conditions.append(
+                            FieldCondition(key=f"metadata.{key}", range=Range(gte=val))
+                        )
+                    elif op == "lte":
+                        conditions.append(
+                            FieldCondition(key=f"metadata.{key}", range=Range(lte=val))
+                        )
+                    elif op == "gt":
+                        conditions.append(
+                            FieldCondition(key=f"metadata.{key}", range=Range(gt=val))
+                        )
+                    elif op == "lt":
+                        conditions.append(
+                            FieldCondition(key=f"metadata.{key}", range=Range(lt=val))
+                        )
+            elif isinstance(value, list):
+                conditions.append(
+                    FieldCondition(key=f"metadata.{key}", match=MatchAny(any=value))
+                )
+            else:
+                conditions.append(
+                    FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value))
+                )
+
+        return Filter(must=conditions) if conditions else None
+
+    def search(
+        self,
+        query: str,
+        k: int = 5,
+        metadata_filter: dict = None,
+        score_threshold: float = 0.1,
+    ) -> list[ScoredPoint]:
         """
         Search the collection for documents similar to the query.
 
         Args:
             query (str): The query to search for
             k (int): The number of documents to return
+            metadata_filter (dict): The metadata filter to apply to the search
+            score_threshold (float): The score threshold to apply to the search
 
         Returns:
             list[Document]: List of documents similar to the query
         """
-        query_embedding = self.embeddings.embed_query(query)
-
-        results = self.client.search(
-            collection_name=self.collection_name,
-            query_vector=query_embedding,
-            limit=k,
-        )
-        return results
-
-    def get_relevant_documents(self, query: str, k: int = 5) -> list[Document]:
-        """
-        Search for similar documents using vector similarity.
-
-        Args:
-            query (str): Search query
-            k (int): Number of results to return
-
-        Returns:
-            list[Document]: List of similar documents with scores
-        """
         try:
-            results = self.search(query, k)
-            processed_results = []
+            query_embedding = self.embeddings.embed_query(query)
+            qdrant_filter = self._build_filter(metadata_filter)
 
-            for scored_point in results:
-                processed_results.append(
-                    {
-                        "text": scored_point.payload["text"],
-                        "metadata": scored_point.payload.get("metadata", {}),
-                        "score": scored_point.score,
-                    }
-                )
-
-            return processed_results
+            results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_embedding,
+                limit=k,
+                query_filter=qdrant_filter,
+                score_threshold=score_threshold,
+            )
+            return results
         except Exception as e:
             print(f"Error searching documents: {str(e)}")
             return []

@@ -45,7 +45,7 @@ You are helpfull assistant that was create by "ducnd58233".
 Use the following history of this conversation and pieces of context to answer the question about the story at the end.
 If the context doesn't provide enough information, just say that you don't know, don't try to make up an answer.
 Pay attention to the context of the question rather than just looking for similar keywords in the corpus.
-Always say "thanks for asking!" at the end of the answer. Generate answer by only Vietnamese.
+Always say "thanks for asking!" at the end of the answer. Generate answer by question language.
 Please reranking following context given query as question before answer the question. each context was separated by "---"
 \n---\n
 History: {history}
@@ -60,10 +60,27 @@ Helpful Answer:
             input_variables=["history", "context", "question"],
         )
 
-    def query(self, query: str):
-        results = self.vector_store.get_relevant_documents(query, k=10)
+    def search(
+        self, query: str, metadata_filter: dict = None, score_threshold: float = 0.1
+    ):
+        results = self.vector_store.search(
+            query,
+            k=10,
+            metadata_filter=metadata_filter,
+            score_threshold=score_threshold,
+        )
 
-        context = "\n---\n".join([doc["text"] for doc in results])
+        processed_results = []
+        for result in results:
+            processed_results.append(
+                {
+                    "text": result.payload.get("text", ""),
+                    "metadata": result.payload.get("metadata", {}),
+                    "score": result.score,
+                }
+            )
+
+        context = "\n---\n".join([doc["text"] for doc in processed_results])
 
         prompt = self._create_prompt().format(
             history=self.history,
