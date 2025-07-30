@@ -1,0 +1,16 @@
+name: rag
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - setuptools
+  - poetry=2.1
+  - cudnn
+  - nvidia::cuda-toolkit
+  - conda-forge::accelerate
+  - conda-forge::poppler
+  - libmagic
+  - tesseract
+prefix: D:\miniconda3\envs\rag
