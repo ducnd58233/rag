@@ -16,6 +16,11 @@ langchain = "^0.3.27"
 qdrant-client = "^1.15.0"
 tiktoken = "^0.9.0"
 unstructured = {extras = ["all-docs"], version = "^0.18.11"}
+dotenv = "^0.9.9"
+pydantic-settings = "^2.10.1"
+langchain-openai = "^0.3.28"
+langchain-huggingface = "^0.3.1"
+sentence-transformers = "^5.0.0"
 
 
 [tool.poetry.group.dev.dependencies]

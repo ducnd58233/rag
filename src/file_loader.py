@@ -4,45 +4,54 @@ from langchain_core.documents import Document
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
 
+from .config import settings
 
-class FileLoader:
-    def load_and_split(self, file_path: str) -> list[Document]:
-        """
-        Load a file and split it into chunks.
 
-        Args:
-            file_path (str): Path to the file
+def load_and_split(file_path: str) -> list[Document]:
+    """
+    Load a file and split it into chunks.
 
-        Returns:
-            list[Document]: List of document chunks
-        """
-        try:
-            file_path = Path(file_path)
-            if not file_path.exists():
-                raise FileNotFoundError(f"File not found: {file_path}")
+    Args:
+        file_path (str): Path to the file
 
-            elements = partition(
-                filename=str(file_path),
-                detect_language_per_element=True,
-            )
+    Returns:
+        list[Document]: List of document chunks
+    """
+    try:
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
 
-            chunks = chunk_by_title(
-                elements,
-                max_characters=524,
-                combine_text_under_n_chars=64,
-            )
-            documents = []
+        elements = partition(
+            filename=str(file_path),
+            detect_language_per_element=True,
+        )
 
-            for element in chunks:
-                text = element.text
-                metadata = element.metadata
-                documents.append(
-                    Document(
-                        page_content=text,
-                        metadata=metadata.to_dict(),
-                    )
+        chunks = chunk_by_title(
+            elements,
+            max_characters=settings.file_loader.chunk_size,
+            combine_text_under_n_chars=settings.file_loader.chunk_overlap,
+        )
+        documents = []
+
+        for idx, element in enumerate(chunks):
+            text = element.text
+            metadata = element.metadata.to_dict()
+            if (
+                len(text) < settings.file_loader.chunk_overlap
+                and idx + 1 < len(chunks)
+                and metadata.get("page", -1) + 1
+                == chunks[idx + 1].metadata.to_dict().get("page", -1)
+            ):
+                continue
+
+            documents.append(
+                Document(
+                    page_content=text,
+                    metadata=metadata,
                 )
-            return documents
+            )
+        return documents
 
-        except Exception as e:
-            raise Exception(f"Error processing file: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error processing file: {str(e)}")

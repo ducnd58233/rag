@@ -13,7 +13,6 @@ class QdrantVectorStore:
         self,
         collection_name: str,
         embeddings: Embeddings,
-        vector_size: int = settings.qdrant.vector_size,
     ):
         """
         Initialize Qdrant vector store manager.
@@ -24,7 +23,6 @@ class QdrantVectorStore:
             qdrant_url (str): URL of the Qdrant server
         """
         self.collection_name = collection_name
-        self.vector_size = vector_size
         self.client = QdrantClient(url=settings.qdrant.url)
         self.embeddings = embeddings
 
@@ -43,7 +41,7 @@ class QdrantVectorStore:
                 self.client.create_collection(
                     collection_name=self.collection_name,
                     vectors_config=VectorParams(
-                        size=self.vector_size,
+                        size=self._get_embedding_dim(),
                         distance=Distance.COSINE,
                     ),
                 )
@@ -54,6 +52,9 @@ class QdrantVectorStore:
         except Exception as e:
             print(f"Error creating collection: {str(e)}")
             return False
+
+    def _get_embedding_dim(self) -> int:
+        return len(self.embeddings.embed_query("test"))
 
     def delete_collection(self) -> bool:
         """
