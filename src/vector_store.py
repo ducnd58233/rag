@@ -1,4 +1,5 @@
-import uuid
+import hashlib
+import json
 
 from langchain.embeddings.base import Embeddings
 from langchain_core.documents import Document
@@ -77,6 +78,14 @@ class QdrantVectorStore:
             print(f"Error creating collection: {str(e)}")
             return False
 
+    def _generate_id(self, document: Document) -> str:
+        content_hash = hashlib.md5(
+            (
+                document.page_content + json.dumps(document.metadata, sort_keys=True)
+            ).encode()
+        ).hexdigest()
+        return content_hash
+
     def add_documents(self, documents: list[Document]) -> bool:
         """
         Add documents to the collection.
@@ -94,8 +103,9 @@ class QdrantVectorStore:
             points = []
             for doc in documents:
                 embedding = self.embeddings.embed_query(doc.page_content)
+
                 point = PointStruct(
-                    id=str(uuid.uuid4()),
+                    id=self._generate_id(doc),
                     vector=embedding,
                     payload={
                         "text": doc.page_content,
