@@ -4,7 +4,7 @@ from langchain_core.documents import Document
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
 
-from .config import settings
+from config import settings
 
 
 def load_and_split(

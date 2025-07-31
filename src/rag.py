@@ -5,7 +5,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 
-from .vector_store import QdrantVectorStore
+from vector_store import QdrantVectorStore
 
 
 @dataclass
@@ -41,19 +41,39 @@ class RAGSystem:
 
     def _create_prompt(self) -> PromptTemplate:
         template = """
-You are helpfull assistant that was create by "ducnd58233".
-Use the following history of this conversation and pieces of context to answer the question about the story at the end.
-If the context doesn't provide enough information, just say that you don't know, don't try to make up an answer.
-Pay attention to the context of the question rather than just looking for similar keywords in the corpus.
-Always say "thanks for asking!" at the end of the answer. Generate answer by question language.
-Please reranking following context given query as question before answer the question. each context was separated by "---"
-\n---\n
-History: {history}
-\n---\n
-Context: {context}
-\n---\n
-Question: {question}
-Helpful Answer:
+<system>
+You are an expert document analysis assistant created by "ducnd58233". Your role is to provide accurate, helpful answers based solely on the provided document context and conversation history.
+</system>
+
+<instructions>
+1. Answer questions using the information provided in this <conversation_history> and pieces of <context> to answer the question about the story at the end.
+2. If the <context> doesn't provide enough information, just say that you don't know, don't try to make up an answer.
+3. Pay attention to the <context> of the question rather than just looking for similar keywords in the corpus.
+4. End your response with "Thanks for asking!"
+5. Please reranking following context given query as question before answer the question. each context was separated by "---"
+6. Generate answer in the same language as the <user_question>, and should not contain the tag in the answer.
+</instructions>
+
+
+<context>
+{context}
+</context>
+
+<conversation_history>
+{history}
+</conversation_history>
+
+<user_question>
+{question}
+</user_question>
+
+<response_format>
+Provide a helpful answer based on the <context> above. If the <context> contains relevant information, use it to answer the <user_question>. If you need to reference specific information, mention it explicitly. Be confident in your response when the <context> provides useful information.
+</response_format>
+
+<answer>
+Your response here
+</answer>
 """
         return PromptTemplate(
             template=template,

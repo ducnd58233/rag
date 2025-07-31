@@ -16,7 +16,7 @@ from qdrant_client.http.models import (
     VectorParams,
 )
 
-from .config import settings
+from config import settings
 
 
 class QdrantVectorStore:
