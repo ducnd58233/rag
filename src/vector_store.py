@@ -1,5 +1,6 @@
 import hashlib
 import json
+from typing import Any
 
 from langchain.embeddings.base import Embeddings
 from langchain_core.documents import Document
@@ -136,7 +137,7 @@ class QdrantVectorStore:
             print(f"Error adding documents: {str(e)}")
             return False
 
-    def _build_filter(self, metadata_filter: dict) -> Filter | None:
+    def _build_filter(self, metadata_filter: dict[str, Any] | None) -> Filter | None:
         if not metadata_filter:
             return None
 
@@ -175,7 +176,7 @@ class QdrantVectorStore:
         self,
         query: str,
         k: int = 5,
-        metadata_filter: dict = None,
+        metadata_filter: dict[str, Any] | None = None,
         score_threshold: float = 0.1,
     ) -> list[ScoredPoint]:
         """
@@ -206,7 +207,7 @@ class QdrantVectorStore:
             print(f"Error searching documents: {str(e)}")
             return []
 
-    def get_collection_info(self) -> dict:
+    def get_collection_info(self) -> dict[str, Any]:
         """
         Get information about the collection.
 

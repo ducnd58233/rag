@@ -37,6 +37,7 @@ cp .env.example .env
 ```
 
 ### 3. Run project
+
 ```bash
 poetry run streamlit run src/main.py
 ```

@@ -3,6 +3,7 @@
 uploads/
 .cursor/
 *.pdf
+figures/
 
 ### Database ###
 *.accdb

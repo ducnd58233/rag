@@ -7,11 +7,11 @@ from components import (
     save_uploaded_file,
 )
 from config import settings
-from file_loader import load_and_split
+from file_loader import FileLoader
 from rag import RAGParams, RAGSystem
 
 
-def initialize_rag_system():
+def initialize_rag_system() -> RAGSystem:
     """Initialize the RAG system"""
     return RAGSystem(
         RAGParams(
@@ -78,8 +78,7 @@ def main():
                         # Save file
                         file_path = save_uploaded_file(file_data)
 
-                        # Load and split document
-                        documents = load_and_split(
+                        documents = FileLoader().load_and_split(
                             file_path=file_path,
                             custom_metadata=metadata,
                         )
@@ -96,7 +95,16 @@ def main():
 
                         # Show document info
                         with st.expander("Document Details"):
-                            st.json(metadata)
+                            doc_info = {
+                                "custom_metadata": metadata,
+                                "document_stats": {
+                                    "chunks_created": len(documents),
+                                    "total_content_length": sum(
+                                        len(doc.page_content) for doc in documents
+                                    ),
+                                },
+                            }
+                            st.json(doc_info)
 
                 except Exception as e:
                     st.error(f"Error uploading document: {str(e)}")
