@@ -1,10 +1,11 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
 
-def file_upload_component() -> dict | None:
+def file_upload_component() -> dict[str, Any] | None:
     st.subheader("Upload Document")
 
     uploaded_file = st.file_uploader(
@@ -42,7 +43,6 @@ def file_upload_component() -> dict | None:
             "tags": tag_list,
             "priority": priority,
             "filename": uploaded_file.name,
-            "file_type": uploaded_file.type,
             "file_size": uploaded_file.size,
         }
 
@@ -55,20 +55,70 @@ def file_upload_component() -> dict | None:
     return None
 
 
-def display_sources(sources):
+def display_sources(sources: list[dict[str, Any]]) -> None:
     if not sources:
         return
 
     with st.expander(f"Sources ({len(sources)})"):
         for i, source in enumerate(sources):
-            with st.expander(f"Source {i+1} - Score: {source['score']:.3f}"):
-                if source.get("metadata"):
-                    st.write("**Metadata:**")
-                    st.json(source["metadata"])
+            metadata = source.get("metadata", {})
+            content = source.get("content", "")
 
-                if source.get("content"):
+            # Create a more descriptive title for the source
+            source_title = f"Source {i+1} - Score: {source['score']:.3f}"
+
+            # Add content type indicators
+            content_types = []
+            if metadata.get("contains_table"):
+                content_types.append("📊 Table")
+            if metadata.get("contains_figure") or metadata.get("contains_picture"):
+                content_types.append("🖼️ Image")
+            if content_types:
+                source_title += f" ({', '.join(content_types)})"
+
+            with st.expander(source_title):
+                # Display content type badges
+                if content_types:
+                    cols = st.columns(len(content_types))
+                    for j, content_type in enumerate(content_types):
+                        with cols[j]:
+                            st.info(content_type)
+
+                # Display page information
+                if metadata.get("page"):
+                    st.write(f"**Page:** {metadata['page']}")
+
+                # Display captions if available
+                captions = []
+                if metadata.get("table_caption"):
+                    captions.append(f"**Table Caption:** {metadata['table_caption']}")
+                if metadata.get("figure_caption"):
+                    captions.append(f"**Figure Caption:** {metadata['figure_caption']}")
+                if metadata.get("picture_caption"):
+                    captions.append(
+                        f"**Picture Caption:** {metadata['picture_caption']}"
+                    )
+
+                if captions:
+                    for caption in captions:
+                        st.write(caption)
+
+                # Display section headings
+                if metadata.get("headings"):
+                    st.write(f"**Section:** {', '.join(metadata['headings'])}")
+
+                # Display content with special formatting for tables
+                if content:
                     st.write("**Content:**")
-                    st.write(source["content"])
+                    if metadata.get("contains_table"):
+                        # Try to format table content nicely
+                        st.code(content, language="text")
+                    else:
+                        st.write(content)
+
+                # Show full metadata in collapsible section
+                with st.expander("Full Metadata"):
+                    st.json(metadata)
 
 
 def display_chat_messages():
@@ -83,7 +133,7 @@ def display_chat_messages():
                 display_sources(message["sources"])
 
 
-def chat_component() -> dict | None:
+def chat_component() -> dict[str, Any] | None:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
@@ -114,7 +164,7 @@ def chat_component() -> dict | None:
     return None
 
 
-def save_uploaded_file(uploaded_file, upload_dir: str = "uploads") -> str:
+def save_uploaded_file(uploaded_file: Any, upload_dir: str = "uploads") -> str:
     Path(upload_dir).mkdir(exist_ok=True)
 
     file_path = os.path.join(upload_dir, uploaded_file.name)
@@ -124,6 +174,6 @@ def save_uploaded_file(uploaded_file, upload_dir: str = "uploads") -> str:
     return file_path
 
 
-def clear_chat_history():
+def clear_chat_history() -> None:
     if "messages" in st.session_state:
         st.session_state.messages = []
