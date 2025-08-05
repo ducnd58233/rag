@@ -7,7 +7,7 @@ from components import (
     save_uploaded_file,
 )
 from config import settings
-from file_loader import load_and_split
+from file_loader import FileLoader
 from rag import RAGParams, RAGSystem
 
 
@@ -79,7 +79,7 @@ def main():
                         file_path = save_uploaded_file(file_data)
 
                         # Load and split document
-                        documents = load_and_split(
+                        documents = FileLoader().load_and_split(
                             file_path=file_path,
                             custom_metadata=metadata,
                         )
@@ -125,26 +125,58 @@ def main():
                     )
 
                     sources = []
-                    if response.get("source_documents"):
-                        sources = [
-                            {
-                                "score": doc.score,
-                                "metadata": doc.payload.get("metadata", {}),
-                                "content": doc.payload.get("text", ""),
-                            }
-                            for doc in response["source_documents"][:3]
-                        ]
+                    if response and response.get("source_documents"):
+                        for doc in response["source_documents"][:3]:
+                            try:
+                                if hasattr(doc, "payload") and hasattr(doc, "score"):
+                                    source_data = {
+                                        "score": getattr(doc, "score", 0.0),
+                                        "metadata": (
+                                            doc.payload.get("metadata", {})
+                                            if doc.payload
+                                            else {}
+                                        ),
+                                        "content": (
+                                            doc.payload.get("text", "")
+                                            if doc.payload
+                                            else ""
+                                        ),
+                                    }
+                                    sources.append(source_data)
+                            except Exception as source_error:
+                                print(
+                                    f"Error processing source document: {source_error}"
+                                )
+                                continue
+
+                    result_content = "Sorry, I couldn't process your query."
+                    if response and response.get("result"):
+                        llm_result = response["result"]
+                        try:
+                            if hasattr(llm_result, "content"):
+                                result_content = llm_result.content
+                            elif hasattr(llm_result, "text"):
+                                result_content = llm_result.text
+                            else:
+                                result_content = str(llm_result)
+                        except Exception as content_error:
+                            print(f"Error extracting content: {content_error}")
+                            result_content = "Error extracting response content."
 
                     st.session_state.messages.append(
                         {
                             "role": "assistant",
-                            "content": response["result"].content,
+                            "content": result_content,
                             "sources": sources,
                         }
                     )
 
                 except Exception as e:
+                    import traceback
+
                     error_msg = f"Error processing query: {str(e)}"
+                    print(f"Full error traceback: {traceback.format_exc()}")
+                    st.error(error_msg)
                     st.session_state.messages.append(
                         {"role": "assistant", "content": error_msg, "sources": []}
                     )

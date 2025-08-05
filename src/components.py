@@ -1,3 +1,4 @@
+import base64
 import os
 from pathlib import Path
 
@@ -55,6 +56,27 @@ def file_upload_component() -> dict | None:
     return None
 
 
+def render_content_with_media(content: str, metadata: dict):
+    """Render content with tables and images from metadata"""
+    # Display the text content
+    st.write(content)
+
+    # Render table if text_as_html exists
+    if metadata.get("text_as_html"):
+        st.subheader("Table Content")
+        st.markdown(metadata["text_as_html"], unsafe_allow_html=True)
+
+    # Render image if image_base64 exists
+    if metadata.get("image_base64"):
+        st.subheader("Image Content")
+        try:
+            # Decode base64 image and display
+            image_data = base64.b64decode(metadata["image_base64"])
+            st.image(image_data, caption="Extracted Image", use_column_width=True)
+        except Exception as e:
+            st.error(f"Error displaying image: {str(e)}")
+
+
 def display_sources(sources):
     if not sources:
         return
@@ -68,7 +90,9 @@ def display_sources(sources):
 
                 if source.get("content"):
                     st.write("**Content:**")
-                    st.write(source["content"])
+                    render_content_with_media(
+                        source["content"], source.get("metadata", {})
+                    )
 
 
 def display_chat_messages():
@@ -100,6 +124,21 @@ def chat_component() -> dict | None:
         .chat-container {
             max-height: 600px;
             overflow-y: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
         }
         </style>
         """,

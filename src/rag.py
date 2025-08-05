@@ -2,37 +2,35 @@ from dataclasses import dataclass
 
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_openai import ChatOpenAI
 
+from llm import OpenRouterClient, OpenRouterParams
 from vector_store import QdrantVectorStore
 
 
 @dataclass
 class RAGParams:
-    llm_model: str = "meta-llama/llama-3.1-8b-instruct"
-    embedding_model: str = "sentence-transformers/distiluse-base-multilingual-cased-v2"
-    collection_name: str = "uploaded_documents"
-    llm_api_key: str = ""
-    temperature: float = 0.1
-    request_timeout_seconds: int = 30
+    llm_model: str
+    embedding_model: str
+    collection_name: str
+    llm_api_key: str
+    temperature: float | None = 0.1
+    request_timeout_seconds: int | None = 30
 
 
 class RAGSystem:
     def __init__(self, params: RAGParams):
-        self.llm = ChatOpenAI(
-            model=params.llm_model,
-            api_key=params.llm_api_key,
-            base_url="https://openrouter.ai/api/v1",
-            temperature=params.temperature,
-            request_timeout=params.request_timeout_seconds,
-        )
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=params.embedding_model,
+        self.llm_client = OpenRouterClient(
+            OpenRouterParams(
+                llm_model=params.llm_model,
+                embedding_model=params.embedding_model,
+                collection_name=params.collection_name,
+                llm_api_key=params.llm_api_key,
+                temperature=params.temperature,
+            )
         )
         self.vector_store = QdrantVectorStore(
             collection_name=params.collection_name,
-            embeddings=self.embeddings,
+            embeddings=self.llm_client.get_embeddings(),
         )
         self.history = ""
 
@@ -83,38 +81,47 @@ Your response here
     def search(
         self, query: str, metadata_filter: dict = None, score_threshold: float = 0.1
     ):
-        results = self.vector_store.search(
-            query,
-            k=10,
-            metadata_filter=metadata_filter,
-            score_threshold=score_threshold,
-        )
-
-        processed_results = []
-        for result in results:
-            processed_results.append(
-                {
-                    "text": result.payload.get("text", ""),
-                    "metadata": result.payload.get("metadata", {}),
-                    "score": result.score,
-                }
+        try:
+            results = self.vector_store.search(
+                query,
+                k=10,
+                metadata_filter=metadata_filter,
+                score_threshold=score_threshold,
             )
 
-        context = "\n---\n".join([doc["text"] for doc in processed_results])
+            processed_results = []
+            images_base64 = []
 
-        prompt = self._create_prompt().format(
-            history=self.history,
-            context=context,
-            question=query,
-        )
+            for result in results:
+                processed_results.append(
+                    {
+                        "text": result.payload.get("text", ""),
+                        "metadata": result.payload.get("metadata", {}),
+                        "score": result.score,
+                    }
+                )
+                if result.payload.get("metadata", {}).get("image_base64"):
+                    images_base64.append(
+                        result.payload.get("metadata", {}).get("image_base64")
+                    )
 
-        answer = self.llm.invoke(prompt)
-        self.history += f"query: {query} \n answer: {answer.content}"
+            context = "\n---\n".join([doc["text"] for doc in processed_results])
 
-        return {
-            "result": answer,
-            "source_documents": results,
-        }
+            prompt = self._create_prompt().format(
+                history=self.history,
+                context=context,
+                question=query,
+            )
+
+            answer = self.llm_client.generate(prompt, images_base64)
+            self.history += f"query: {query} \n answer: {answer.content}"
+
+            return {
+                "result": answer,
+                "source_documents": results,
+            }
+        except Exception as e:
+            raise Exception(f"Error in RAG search: {str(e)}")
 
     def clear_history(self):
         self.history = ""

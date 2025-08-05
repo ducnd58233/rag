@@ -112,6 +112,9 @@ class QdrantVectorStore:
 
             points = []
             for doc in documents:
+                if not doc.page_content or not doc.page_content.strip():
+                    continue
+
                 embedding = self.embeddings.embed_query(doc.page_content)
 
                 point = PointStruct(
@@ -128,9 +131,7 @@ class QdrantVectorStore:
                 collection_name=self.collection_name,
                 points=points,
             )
-            print(
-                f"Added {len(documents)} documents to collection {self.collection_name}"
-            )
+            print(f"Added {len(points)} documents to collection {self.collection_name}")
             return True
         except Exception as e:
             print(f"Error adding documents: {str(e)}")
